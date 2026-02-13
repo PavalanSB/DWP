@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Settings | Digital Wellness Platform{% endblock %}
+{% block page_content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Settings</h2>
+  <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-primary btn-sm">
+    Logout
+  </a>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Personalization & alerts</h5>
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label" for="theme">Theme</label>
+            <select class="form-select" id="theme" name="theme">
+              <option value="light" {% if current_user.theme == 'light' %}selected{% endif %}>Light</option>
+              <option value="dark" {% if current_user.theme == 'dark' %}selected{% endif %}>Dark</option>
+            </select>
+          </div>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="notifications_enabled" name="notifications_enabled" {% if current_user.notifications_enabled %}checked{% endif %}>
+            <label class="form-check-label" for="notifications_enabled">Wellness notifications</label>
+          </div>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="burnout_alerts_enabled" name="burnout_alerts_enabled" {% if current_user.burnout_alerts_enabled %}checked{% endif %}>
+            <label class="form-check-label" for="burnout_alerts_enabled">Burnout alerts</label>
+          </div>
+          <div class="form-check form-switch mb-4">
+            <input class="form-check-input" type="checkbox" id="mood_tracking_enabled" name="mood_tracking_enabled" {% if current_user.mood_tracking_enabled %}checked{% endif %}>
+            <label class="form-check-label" for="mood_tracking_enabled">Mood tracking</label>
+          </div>
+
+          <h6 class="mb-2">Privacy</h6>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="profile_private" name="profile_private" {% if current_user.profile_private %}checked{% endif %}>
+            <label class="form-check-label" for="profile_private">Make profile private</label>
+          </div>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="allow_analytics" name="allow_analytics" {% if current_user.allow_analytics %}checked{% endif %}>
+            <label class="form-check-label" for="allow_analytics">Allow anonymous analytics</label>
+          </div>
+          <div class="form-check form-switch mb-4">
+            <input class="form-check-input" type="checkbox" id="show_wellness_public" name="show_wellness_public" {% if current_user.show_wellness_public %}checked{% endif %}>
+            <label class="form-check-label" for="show_wellness_public">Show wellness score publicly</label>
+          </div>
+
+          <h6 class="mb-2">Daily goals</h6>
+          <p class="small text-muted mb-2">Optional targets for progress and consistency.</p>
+          <div class="row g-2 mb-3">
+            <div class="col-4">
+              <label class="form-label small" for="screen_limit">Screen limit (min)</label>
+              <input type="number" class="form-control form-control-sm" id="screen_limit" name="screen_limit" min="0" value="{{ goals.screen_limit if goals and goals.screen_limit else '' }}" placeholder="300">
+            </div>
+            <div class="col-4">
+              <label class="form-label small" for="study_target">Study (hours)</label>
+              <input type="number" step="0.5" class="form-control form-control-sm" id="study_target" name="study_target" min="0" value="{{ goals.study_target if goals and goals.study_target else '' }}" placeholder="4">
+            </div>
+            <div class="col-4">
+              <label class="form-label small" for="sleep_target">Sleep (hours)</label>
+              <input type="number" step="0.5" class="form-control form-control-sm" id="sleep_target" name="sleep_target" min="0" value="{{ goals.sleep_target if goals and goals.sleep_target else '' }}" placeholder="7.5">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Save settings</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Change Password</h5>
+        <form method="post" action="{{ url_for('profile.change_password') }}">
+          <div class="mb-2">
+            <label class="form-label small" for="current_password">Current password</label>
+            <input type="password" class="form-control form-control-sm" id="current_password" name="current_password" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small" for="new_password">New password</label>
+            <input type="password" class="form-control form-control-sm" id="new_password" name="new_password" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small" for="confirm_password">Confirm new password</label>
+            <input type="password" class="form-control form-control-sm" id="confirm_password" name="confirm_password" required>
+          </div>
+          <button type="submit" class="btn btn-outline-primary btn-sm">Update password</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mt-1">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Security</h5>
+        <div class="small mb-2">
+          <span class="text-muted d-block">Last login</span>
+          <span class="fw-semibold">
+            {% if last_login %}
+              {{ last_login.strftime('%b %d, %Y %H:%M') }}
+            {% else %}
+              <span class="text-muted">Not available</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="small mb-3">
+          <span class="text-muted d-block">Password last changed</span>
+          <span class="fw-semibold">
+            {% if password_changed %}
+              {{ password_changed.strftime('%b %d, %Y %H:%M') }}
+            {% else %}
+              <span class="text-muted">Not recorded</span>
+            {% endif %}
+          </span>
+        </div>
+        <form method="get" action="{{ url_for('settings.export_data') }}">
+          <button type="submit" class="btn btn-outline-secondary btn-sm">
+            Download my data
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Active sessions</h5>
+        {% if active_sessions %}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-3">
+              <thead class="small text-muted">
+                <tr>
+                  <th>Device</th>
+                  <th>Login time</th>
+                  <th>Last active</th>
+                </tr>
+              </thead>
+              <tbody class="small">
+                {% for s in active_sessions %}
+                  <tr>
+                    <td>{{ s.device_info or 'Unknown device' }}</td>
+                    <td>{{ s.login_time.strftime('%b %d, %Y %H:%M') }}</td>
+                    <td>{{ s.last_active.strftime('%b %d, %Y %H:%M') }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <form method="post" action="{{ url_for('settings.logout_other_sessions') }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+              Logout from other sessions
+            </button>
+          </form>
+        {% else %}
+          <p class="text-muted small mb-0">No active sessions recorded.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mt-3">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title text-danger">Danger zone</h5>
+        <p class="small text-muted mb-2">
+          Resetting your data will permanently remove all recorded activities and wellness snapshots. This cannot be undone.
+        </p>
+        <form method="post" action="{{ url_for('settings.reset_data') }}">
+          <button type="submit" class="btn btn-outline-danger">Reset all activity data</button>
+        </form>
+        <hr class="my-3">
+        <p class="small text-muted mb-2">
+          Deleting your account will permanently remove your profile, login, activities, goals, and wellness insights. This action cannot be undone.
+        </p>
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+          Delete this account
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete account confirmation modal -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger" id="deleteAccountModalLabel">Delete account permanently</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small">
+          This will permanently delete your account, activities, goals, and wellness insights. This action cannot be undone.
+        </p>
+        <form method="post" action="{{ url_for('settings.delete_account') }}">
+          <div class="mb-3">
+            <label for="confirm_password" class="form-label small">Enter your password to confirm</label>
+            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+          </div>
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-danger">Delete account</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

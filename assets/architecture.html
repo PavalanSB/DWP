@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DWP — Architecture</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f7fa; padding: 2rem; margin: 0; }
+    h1 { color: #0d6efd; margin-bottom: 1.5rem; font-size: 1.5rem; }
+    .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+    .box { background: #fff; padding: 0.75rem 1.25rem; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.08); border: 2px solid #0d6efd; font-size: 0.9rem; font-weight: 500; }
+    .box.alt { border-color: #198754; background: #f0f9f4; }
+    .arrow { color: #0d6efd; font-size: 1.25rem; }
+    .layer { margin-top: 1.25rem; }
+    .layer-title { font-size: 0.8rem; color: #6c757d; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .blueprints { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .blueprints .box { font-size: 0.85rem; }
+    .stack { display: flex; flex-direction: column; gap: 0.5rem; max-width: 320px; margin-top: 1rem; }
+    .stack .box { margin: 0; }
+  </style>
+</head>
+<body>
+  <h1>Digital Wellness Platform — Architecture</h1>
+  <div class="flow">
+    <span class="box">Browser / Client</span>
+    <span class="arrow">→</span>
+    <span class="box">Flask App (create_app)</span>
+    <span class="arrow">→</span>
+    <span class="box">Blueprints</span>
+  </div>
+  <div class="layer">
+    <div class="layer-title">Blueprints</div>
+    <div class="blueprints">
+      <span class="box">auth</span>
+      <span class="box">dashboard</span>
+      <span class="box">activity</span>
+      <span class="box">analytics</span>
+      <span class="box">insights</span>
+      <span class="box">profile</span>
+      <span class="box">settings</span>
+      <span class="box">api</span>
+    </div>
+  </div>
+  <div class="flow" style="margin-top: 1rem;">
+    <span class="box">Blueprints</span>
+    <span class="arrow">→</span>
+    <span class="box">Models (ORM)</span>
+    <span class="arrow">+</span>
+    <span class="box">SQLite</span>
+  </div>
+  <div class="flow">
+    <span class="box">ML module</span>
+    <span class="arrow">←</span>
+    <span class="box">wellness / Burnout risk</span>
+  </div>
+  <div class="layer">
+    <div class="layer-title">OAuth (Authlib)</div>
+    <div class="blueprints">
+      <span class="box alt">Google</span>
+      <span class="box alt">Facebook</span>
+    </div>
+  </div>
+</body>
+</html>

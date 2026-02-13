@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DWP — Database Schema</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f7fa; padding: 2rem; margin: 0; }
+    h1 { color: #0d6efd; margin-bottom: 1.5rem; font-size: 1.5rem; }
+    .schema { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+    .table { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); border-left: 4px solid #0d6efd; min-width: 200px; max-width: 280px; }
+    .table-name { font-weight: 700; padding: 0.6rem 1rem; background: #0d6efd; color: #fff; border-radius: 4px 4px 0 0; font-size: 0.95rem; }
+    .table-cols { padding: 0.75rem 1rem; font-size: 0.8rem; line-height: 1.5; color: #333; }
+    .table-cols span { display: block; }
+    .pk { color: #0d6efd; font-weight: 600; }
+    .fk { color: #198754; }
+    .relations { margin-top: 1.5rem; padding: 1rem; background: #e7f1ff; border-radius: 8px; font-size: 0.9rem; color: #0d6efd; }
+    .relations strong { display: block; margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Digital Wellness Platform — Database Schema (SQLite)</h1>
+  <div class="schema">
+    <div class="table">
+      <div class="table-name">users</div>
+      <div class="table-cols">
+        <span class="pk">id</span>
+        <span>name, email, password_hash</span>
+        <span>created_at, avatar_filename</span>
+        <span>age, country, occupation, digital_goal</span>
+        <span>bio, theme</span>
+        <span>notifications_enabled, burnout_alerts_enabled, mood_tracking_enabled</span>
+        <span>profile_private, allow_analytics, show_wellness_public</span>
+        <span>password_updated_at</span>
+      </div>
+    </div>
+    <div class="table">
+      <div class="table-name">activities</div>
+      <div class="table-cols">
+        <span class="pk">id</span>
+        <span class="fk">user_id (FK → users)</span>
+        <span>activity_date, screen_time_minutes, sleep_hours, work_study_hours</span>
+        <span>social_time, learning_time, entertainment_time, productivity_time, gaming_time</span>
+        <span>mood, stress_level, energy_level, created_at</span>
+      </div>
+    </div>
+    <div class="table">
+      <div class="table-name">wellness_snapshots</div>
+      <div class="table-cols">
+        <span class="pk">id</span>
+        <span class="fk">user_id (FK → users)</span>
+        <span>snapshot_date, classification, recommendation, created_at</span>
+      </div>
+    </div>
+    <div class="table">
+      <div class="table-name">goals</div>
+      <div class="table-cols">
+        <span class="pk">id</span>
+        <span class="fk">user_id (FK → users)</span>
+        <span>screen_limit, study_target, sleep_target</span>
+        <span>created_at, updated_at</span>
+      </div>
+    </div>
+    <div class="table">
+      <div class="table-name">user_sessions</div>
+      <div class="table-cols">
+        <span class="pk">id</span>
+        <span class="fk">user_id (FK → users)</span>
+        <span>device_info, login_time, last_active, is_active</span>
+      </div>
+    </div>
+  </div>
+  <div class="relations">
+    <strong>Relationships</strong>
+    users 1 — * activities · users 1 — * wellness_snapshots · users 1 — * goals · users 1 — * user_sessions
+  </div>
+</body>
+</html>

@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+{% block title %}Insights & Strategies | Digital Wellness Platform{% endblock %}
+{% block page_content %}
+
+{% if snapshot %}
+  {% set classification = snapshot.classification %}
+  {% set is_healthy = classification == "Healthy" %}
+  {% set is_moderate = classification == "Moderate" %}
+  {% set is_unhealthy = classification == "Unhealthy" %}
+  {% set is_burnout = "burnout" in snapshot.recommendation.lower() or "burnout" in classification.lower() %}
+
+  <!-- Wellness Score Visualization -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0 wellness-score-card">
+        <div class="card-body text-center py-4">
+          <div class="d-flex align-items-center justify-content-center gap-4 flex-wrap">
+            <div class="wellness-score-circle-wrapper">
+              <canvas id="wellnessScoreChart" width="180" height="180"></canvas>
+              <div class="wellness-score-overlay">
+                <div class="wellness-score-value">{{ wellness_score }}%</div>
+                <div class="wellness-score-label {% if is_healthy %}text-success{% elif is_moderate %}text-warning{% else %}text-danger{% endif %}">
+                  {{ classification }} Wellness
+                </div>
+              </div>
+            </div>
+            <div class="wellness-score-details text-start">
+              <div class="mb-2">
+                <span class="trend-indicator {% if trend == 'up' %}text-success{% elif trend == 'down' %}text-danger{% else %}text-muted{% endif %}">
+                  {% if trend == 'up' %}
+                    <i class="bi bi-arrow-up-circle-fill"></i> Improving
+                  {% elif trend == 'down' %}
+                    <i class="bi bi-arrow-down-circle-fill"></i> Declining
+                  {% else %}
+                    <i class="bi bi-dash-circle"></i> Stable
+                  {% endif %}
+                </span>
+              </div>
+              <p class="text-muted small mb-0">
+                {% if previous_snapshot %}
+                  Compared to {{ previous_snapshot.snapshot_date.strftime('%B %d') }}
+                {% else %}
+                  As of {{ snapshot.snapshot_date.strftime('%B %d, %Y') }}
+                {% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Banner -->
+  <div class="row mb-4">
+    <div class="col-12">
+      {% if is_burnout %}
+        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
+          <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+          <div>
+            <strong>Burnout Risk Detected!</strong> {{ snapshot.recommendation[:100] }}...
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% elif is_unhealthy %}
+        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
+          <i class="bi bi-exclamation-circle-fill me-2 fs-5"></i>
+          <div>
+            <strong>Unhealthy Pattern Detected</strong> {{ snapshot.recommendation[:100] }}...
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% elif is_moderate %}
+        <div class="alert alert-warning alert-dismissible fade show d-flex align-items-center" role="alert">
+          <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+          <div>
+            <strong>Moderate Wellness</strong> {{ snapshot.recommendation[:100] }}...
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% else %}
+        <div class="alert alert-success alert-dismissible fade show d-flex align-items-center" role="alert">
+          <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+          <div>
+            <strong>Healthy Wellness Pattern</strong> Keep up the good work! Continue following your wellness strategies.
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Strategy Action Cards -->
+  <div class="row g-4 mb-4">
+    <div class="col-md-4">
+      <div class="card strategy-card h-100 shadow-sm border-0">
+        <div class="card-body">
+          <div class="strategy-icon mb-3">
+            <i class="bi bi-moon-stars-fill text-primary"></i>
+          </div>
+          <h5 class="card-title mb-3">Sleep Optimization</h5>
+          <ul class="strategy-list list-unstyled mb-3">
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Maintain 7–9 hours sleep</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Avoid screens 60 mins before bed</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Enable night mode</li>
+          </ul>
+          <div class="strategy-checklist">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="checkSleep1">
+              <label class="form-check-label small" for="checkSleep1">Slept 7+ hours today</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="checkSleep2">
+              <label class="form-check-label small" for="checkSleep2">Avoided screens before bed</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card strategy-card h-100 shadow-sm border-0">
+        <div class="card-body">
+          <div class="strategy-icon mb-3">
+            <i class="bi bi-graph-up-arrow text-success"></i>
+          </div>
+          <h5 class="card-title mb-3">Productivity Boost</h5>
+          <ul class="strategy-list list-unstyled mb-3">
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Use 25–50 minute focus blocks</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Batch notifications</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Reduce multitasking</li>
+          </ul>
+          <div class="strategy-checklist">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="checkProd1">
+              <label class="form-check-label small" for="checkProd1">Completed focus blocks today</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="checkProd2">
+              <label class="form-check-label small" for="checkProd2">Reduced screen time today</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card strategy-card h-100 shadow-sm border-0">
+        <div class="card-body">
+          <div class="strategy-icon mb-3">
+            <i class="bi bi-phone-vibrate text-warning"></i>
+          </div>
+          <h5 class="card-title mb-3">Digital Detox</h5>
+          <ul class="strategy-list list-unstyled mb-3">
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Schedule 1-hour offline window</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Avoid social apps before sleep</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Practice deep focus sessions</li>
+          </ul>
+          <div class="strategy-checklist">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="checkDetox1">
+              <label class="form-check-label small" for="checkDetox1">Completed offline window</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="checkDetox2">
+              <label class="form-check-label small" for="checkDetox2">Used focus mode</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visual Analytics Section -->
+  <div class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title mb-3">Wellness Balance</h5>
+          <canvas id="radarChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title mb-3">Weekly Comparison</h5>
+          <canvas id="weeklyComparisonChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Improvement Summary -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0 improvement-summary-card">
+        <div class="card-body">
+          <h5 class="card-title mb-3">Improvement Summary</h5>
+          <div class="row g-3">
+            <div class="col-md-3 col-6">
+              <div class="improvement-item">
+                <i class="bi bi-moon-stars-fill text-primary me-2"></i>
+                <span class="improvement-text">
+                  {% if avg_sleep >= 7 %}
+                    <span class="text-success">Sleep: {{ avg_sleep }}h</span>
+                  {% elif avg_sleep >= 6 %}
+                    <span class="text-warning">Sleep: {{ avg_sleep }}h</span>
+                  {% else %}
+                    <span class="text-danger">Sleep: {{ avg_sleep }}h</span>
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+            <div class="col-md-3 col-6">
+              <div class="improvement-item">
+                <i class="bi bi-phone text-warning me-2"></i>
+                <span class="improvement-text">
+                  {% set screen_hours = (this_week_total / 60 / 7) | round(1) %}
+                  {% if screen_hours <= 4 %}
+                    <span class="text-success">Screen: {{ screen_hours }}h/day</span>
+                  {% elif screen_hours <= 6 %}
+                    <span class="text-warning">Screen: {{ screen_hours }}h/day</span>
+                  {% else %}
+                    <span class="text-danger">Screen: {{ screen_hours }}h/day</span>
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+            <div class="col-md-3 col-6">
+              <div class="improvement-item">
+                <i class="bi bi-briefcase text-success me-2"></i>
+                <span class="improvement-text">
+                  {% if avg_productivity >= 6 %}
+                    <span class="text-success">Productivity: {{ avg_productivity }}h</span>
+                  {% elif avg_productivity >= 4 %}
+                    <span class="text-warning">Productivity: {{ avg_productivity }}h</span>
+                  {% else %}
+                    <span class="text-danger">Productivity: {{ avg_productivity }}h</span>
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+            <div class="col-md-3 col-6">
+              <div class="improvement-item">
+                <i class="bi bi-emoji-frown text-danger me-2"></i>
+                <span class="improvement-text">
+                  {% if avg_stress <= 2 %}
+                    <span class="text-success">Stress: {{ avg_stress }}/5</span>
+                  {% elif avg_stress <= 3 %}
+                    <span class="text-warning">Stress: {{ avg_stress }}/5</span>
+                  {% else %}
+                    <span class="text-danger">Stress: {{ avg_stress }}/5</span>
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% else %}
+  <!-- Empty State -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card shadow-sm border-0 text-center py-5">
+        <div class="card-body">
+          <i class="bi bi-lightbulb display-1 text-muted mb-3"></i>
+          <h3 class="mb-3">No Insights Yet</h3>
+          <p class="text-muted mb-4">Record your first activity to generate personalized wellness insights and strategies.</p>
+          <a href="{{ url_for('activity.track_activity') }}" class="btn btn-primary">Track Activity</a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  {% if snapshot %}
+    // Wellness Score Circular Progress Chart
+    const wellnessScore = {{ wellness_score }};
+    const wellnessColor = {% if is_healthy %}'#28a745'{% elif is_moderate %}'#ffc107'{% else %}'#dc3545'{% endif %};
+    
+    const scoreCtx = document.getElementById('wellnessScoreChart').getContext('2d');
+    new Chart(scoreCtx, {
+      type: 'doughnut',
+      data: {
+        datasets: [{
+          data: [wellnessScore, 100 - wellnessScore],
+          backgroundColor: [wellnessColor, '#e9ecef'],
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        cutout: '75%',
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false }
+        }
+      }
+    });
+
+    // Radar Chart - Wellness Balance
+    const radarCtx = document.getElementById('radarChart').getContext('2d');
+    const screenHours = {{ (this_week_total / 60 / 7) | round(1) }};
+    const sleepScore = Math.min(100, ({{ avg_sleep }} / 9) * 100);
+    const productivityScore = Math.min(100, ({{ avg_productivity }} / 8) * 100);
+    const stressScore = 100 - (({{ avg_stress }} / 5) * 100);
+    const screenScore = Math.max(0, 100 - ((screenHours / 10) * 100));
+
+    new Chart(radarCtx, {
+      type: 'radar',
+      data: {
+        labels: ['Screen Time', 'Sleep', 'Productivity', 'Stress Management'],
+        datasets: [{
+          label: 'Your Balance',
+          data: [screenScore, sleepScore, productivityScore, stressScore],
+          backgroundColor: 'rgba(13, 110, 253, 0.2)',
+          borderColor: '#0d6efd',
+          borderWidth: 2,
+          pointBackgroundColor: '#0d6efd',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: '#0d6efd'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+          r: {
+            beginAtZero: true,
+            max: 100,
+            ticks: { stepSize: 25 }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    // Weekly Comparison Bar Chart
+    const weeklyCtx = document.getElementById('weeklyComparisonChart').getContext('2d');
+    const thisWeekHours = {{ (this_week_total / 60) | round(1) }};
+    const lastWeekHours = {{ (last_week_total / 60) | round(1) }};
+
+    new Chart(weeklyCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Last Week', 'This Week'],
+        datasets: [{
+          label: 'Total Screen Time (hours)',
+          data: [lastWeekHours, thisWeekHours],
+          backgroundColor: ['#6c757d', '#0d6efd'],
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return value + 'h';
+              }
+            }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    // Save checklist state to localStorage
+    document.querySelectorAll('.strategy-checklist input[type="checkbox"]').forEach(function(checkbox) {
+      const key = 'insights_checklist_' + checkbox.id;
+      checkbox.checked = localStorage.getItem(key) === 'true';
+      checkbox.addEventListener('change', function() {
+        localStorage.setItem(key, this.checked);
+      });
+    });
+  {% endif %}
+</script>
+{% endblock %}

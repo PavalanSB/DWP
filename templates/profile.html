@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block title %}Profile | Digital Wellness Platform{% endblock %}
+{% block page_content %}
+<div class="profile-header card shadow-sm border-0 mb-4">
+  <div class="profile-cover"></div>
+  <div class="profile-header-body d-flex align-items-center px-4 pb-3">
+    <label class="profile-avatar-wrapper profile-avatar-edit me-3" for="avatar">
+      {% if current_user.avatar_filename %}
+        <img id="profileAvatarPreview"
+             src="{{ url_for('static', filename='uploads/avatars/' ~ current_user.avatar_filename) }}"
+             alt="Profile picture" class="profile-avatar-img">
+      {% else %}
+        <div id="profileAvatarPreview" class="profile-avatar-placeholder">
+          <span>{{ current_user.name[0]|upper }}</span>
+        </div>
+      {% endif %}
+      <span class="profile-avatar-camera">
+        <i class="bi bi-camera-fill"></i>
+      </span>
+    </label>
+    <div>
+      <h3 class="mb-1">{{ current_user.name }}</h3>
+      <p class="mb-1 text-muted small">{{ current_user.email }}</p>
+      {% if current_user.occupation or current_user.country %}
+        <p class="mb-0 small text-muted">
+          {% if current_user.occupation %}{{ current_user.occupation }}{% endif %}
+          {% if current_user.occupation and current_user.country %}&middot;{% endif %}
+          {% if current_user.country %}{{ current_user.country }}{% endif %}
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Wellness summary + profile completion -->
+<div class="row g-4 mb-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Digital wellness summary</h5>
+        <div class="row g-3 small">
+          <div class="col-6 col-md-4">
+            <div class="text-muted">Member since</div>
+            <div class="fw-semibold">{{ current_user.created_at.strftime("%b %d, %Y") }}</div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="text-muted">Tracked days</div>
+            <div class="fw-semibold">{{ total_days }}</div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="text-muted">Current wellness score</div>
+            <div class="fw-semibold">
+              {% if wellness_score is not none %}
+                {{ wellness_score }}%
+              {% else %}
+                <span class="text-muted">Not yet available</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="text-muted">Longest streak</div>
+            <div class="fw-semibold">{{ longest_streak }} days</div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="text-muted">Avg. screen time</div>
+            <div class="fw-semibold">
+              {% if avg_screen_minutes %}
+                {{ (avg_screen_minutes / 60) | round(1) }} h / day
+              {% else %}
+                <span class="text-muted">Not enough data</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="text-muted">Avg. sleep</div>
+            <div class="fw-semibold">
+              {% if avg_sleep_hours %}
+                {{ avg_sleep_hours | round(1) }} h / day
+              {% else %}
+                <span class="text-muted">Not enough data</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-body">
+        <h6 class="card-title mb-2">Profile completion</h6>
+        <p class="small text-muted mb-1">
+          Complete your profile to unlock more personalized insights.
+        </p>
+        <div class="d-flex align-items-center gap-2">
+          <div class="flex-grow-1">
+            <div class="progress" style="height: 8px;">
+              <div class="progress-bar" role="progressbar"
+                   style="width: {{ profile_completion }}%;"
+                   aria-valuenow="{{ profile_completion }}" aria-valuemin="0" aria-valuemax="100">
+              </div>
+            </div>
+          </div>
+          <div class="small fw-semibold">{{ profile_completion }}%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Account Info</h5>
+        <form method="post" enctype="multipart/form-data">
+          <input type="file" id="avatar" name="avatar" accept="image/*" class="d-none">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="name">Full name</label>
+              <input class="form-control" id="name" name="name" value="{{ current_user.name }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="email">Email</label>
+              <input type="email" class="form-control" id="email" name="email" value="{{ current_user.email }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="age">Age</label>
+              <input type="number" class="form-control" id="age" name="age" min="1" value="{{ current_user.age or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="country">Country</label>
+              <select class="form-select" id="country" name="country">
+                <option value="">Select country</option>
+                <option value="Afghanistan" {% if current_user.country == 'Afghanistan' %}selected{% endif %}>Afghanistan</option>
+                <option value="Albania" {% if current_user.country == 'Albania' %}selected{% endif %}>Albania</option>
+                <option value="Algeria" {% if current_user.country == 'Algeria' %}selected{% endif %}>Algeria</option>
+                <option value="Argentina" {% if current_user.country == 'Argentina' %}selected{% endif %}>Argentina</option>
+                <option value="Australia" {% if current_user.country == 'Australia' %}selected{% endif %}>Australia</option>
+                <option value="Austria" {% if current_user.country == 'Austria' %}selected{% endif %}>Austria</option>
+                <option value="Bangladesh" {% if current_user.country == 'Bangladesh' %}selected{% endif %}>Bangladesh</option>
+                <option value="Belgium" {% if current_user.country == 'Belgium' %}selected{% endif %}>Belgium</option>
+                <option value="Brazil" {% if current_user.country == 'Brazil' %}selected{% endif %}>Brazil</option>
+                <option value="Canada" {% if current_user.country == 'Canada' %}selected{% endif %}>Canada</option>
+                <option value="Chile" {% if current_user.country == 'Chile' %}selected{% endif %}>Chile</option>
+                <option value="China" {% if current_user.country == 'China' %}selected{% endif %}>China</option>
+                <option value="Colombia" {% if current_user.country == 'Colombia' %}selected{% endif %}>Colombia</option>
+                <option value="Egypt" {% if current_user.country == 'Egypt' %}selected{% endif %}>Egypt</option>
+                <option value="Finland" {% if current_user.country == 'Finland' %}selected{% endif %}>Finland</option>
+                <option value="France" {% if current_user.country == 'France' %}selected{% endif %}>France</option>
+                <option value="Germany" {% if current_user.country == 'Germany' %}selected{% endif %}>Germany</option>
+                <option value="Greece" {% if current_user.country == 'Greece' %}selected{% endif %}>Greece</option>
+                <option value="Hong Kong" {% if current_user.country == 'Hong Kong' %}selected{% endif %}>Hong Kong</option>
+                <option value="India" {% if current_user.country == 'India' %}selected{% endif %}>India</option>
+                <option value="Indonesia" {% if current_user.country == 'Indonesia' %}selected{% endif %}>Indonesia</option>
+                <option value="Iran" {% if current_user.country == 'Iran' %}selected{% endif %}>Iran</option>
+                <option value="Iraq" {% if current_user.country == 'Iraq' %}selected{% endif %}>Iraq</option>
+                <option value="Ireland" {% if current_user.country == 'Ireland' %}selected{% endif %}>Ireland</option>
+                <option value="Israel" {% if current_user.country == 'Israel' %}selected{% endif %}>Israel</option>
+                <option value="Italy" {% if current_user.country == 'Italy' %}selected{% endif %}>Italy</option>
+                <option value="Japan" {% if current_user.country == 'Japan' %}selected{% endif %}>Japan</option>
+                <option value="Kenya" {% if current_user.country == 'Kenya' %}selected{% endif %}>Kenya</option>
+                <option value="Malaysia" {% if current_user.country == 'Malaysia' %}selected{% endif %}>Malaysia</option>
+                <option value="Mexico" {% if current_user.country == 'Mexico' %}selected{% endif %}>Mexico</option>
+                <option value="Netherlands" {% if current_user.country == 'Netherlands' %}selected{% endif %}>Netherlands</option>
+                <option value="New Zealand" {% if current_user.country == 'New Zealand' %}selected{% endif %}>New Zealand</option>
+                <option value="Nigeria" {% if current_user.country == 'Nigeria' %}selected{% endif %}>Nigeria</option>
+                <option value="Norway" {% if current_user.country == 'Norway' %}selected{% endif %}>Norway</option>
+                <option value="Pakistan" {% if current_user.country == 'Pakistan' %}selected{% endif %}>Pakistan</option>
+                <option value="Philippines" {% if current_user.country == 'Philippines' %}selected{% endif %}>Philippines</option>
+                <option value="Poland" {% if current_user.country == 'Poland' %}selected{% endif %}>Poland</option>
+                <option value="Portugal" {% if current_user.country == 'Portugal' %}selected{% endif %}>Portugal</option>
+                <option value="Russia" {% if current_user.country == 'Russia' %}selected{% endif %}>Russia</option>
+                <option value="Saudi Arabia" {% if current_user.country == 'Saudi Arabia' %}selected{% endif %}>Saudi Arabia</option>
+                <option value="Singapore" {% if current_user.country == 'Singapore' %}selected{% endif %}>Singapore</option>
+                <option value="South Africa" {% if current_user.country == 'South Africa' %}selected{% endif %}>South Africa</option>
+                <option value="South Korea" {% if current_user.country == 'South Korea' %}selected{% endif %}>South Korea</option>
+                <option value="Spain" {% if current_user.country == 'Spain' %}selected{% endif %}>Spain</option>
+                <option value="Sri Lanka" {% if current_user.country == 'Sri Lanka' %}selected{% endif %}>Sri Lanka</option>
+                <option value="Sweden" {% if current_user.country == 'Sweden' %}selected{% endif %}>Sweden</option>
+                <option value="Switzerland" {% if current_user.country == 'Switzerland' %}selected{% endif %}>Switzerland</option>
+                <option value="Taiwan" {% if current_user.country == 'Taiwan' %}selected{% endif %}>Taiwan</option>
+                <option value="Thailand" {% if current_user.country == 'Thailand' %}selected{% endif %}>Thailand</option>
+                <option value="Turkey" {% if current_user.country == 'Turkey' %}selected{% endif %}>Turkey</option>
+                <option value="Ukraine" {% if current_user.country == 'Ukraine' %}selected{% endif %}>Ukraine</option>
+                <option value="United Arab Emirates" {% if current_user.country == 'United Arab Emirates' %}selected{% endif %}>United Arab Emirates</option>
+                <option value="United Kingdom" {% if current_user.country == 'United Kingdom' %}selected{% endif %}>United Kingdom</option>
+                <option value="United States" {% if current_user.country == 'United States' %}selected{% endif %}>United States</option>
+                <option value="Vietnam" {% if current_user.country == 'Vietnam' %}selected{% endif %}>Vietnam</option>
+                <option value="Other" {% if current_user.country == 'Other' %}selected{% endif %}>Other</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="occupation">Occupation / Role</label>
+              <select class="form-select" id="occupation" name="occupation">
+                <option value="">Select occupation</option>
+                <option value="Student" {% if current_user.occupation == 'Student' %}selected{% endif %}>Student</option>
+                <option value="Software Developer" {% if current_user.occupation == 'Software Developer' %}selected{% endif %}>Software Developer</option>
+                <option value="Teacher / Educator" {% if current_user.occupation == 'Teacher / Educator' %}selected{% endif %}>Teacher / Educator</option>
+                <option value="Engineer" {% if current_user.occupation == 'Engineer' %}selected{% endif %}>Engineer</option>
+                <option value="Healthcare Professional" {% if current_user.occupation == 'Healthcare Professional' %}selected{% endif %}>Healthcare Professional</option>
+                <option value="Designer" {% if current_user.occupation == 'Designer' %}selected{% endif %}>Designer</option>
+                <option value="Researcher" {% if current_user.occupation == 'Researcher' %}selected{% endif %}>Researcher</option>
+                <option value="Manager / Executive" {% if current_user.occupation == 'Manager / Executive' %}selected{% endif %}>Manager / Executive</option>
+                <option value="Entrepreneur" {% if current_user.occupation == 'Entrepreneur' %}selected{% endif %}>Entrepreneur</option>
+                <option value="Freelancer" {% if current_user.occupation == 'Freelancer' %}selected{% endif %}>Freelancer</option>
+                <option value="Data Analyst" {% if current_user.occupation == 'Data Analyst' %}selected{% endif %}>Data Analyst</option>
+                <option value="Marketing Professional" {% if current_user.occupation == 'Marketing Professional' %}selected{% endif %}>Marketing Professional</option>
+                <option value="Accountant / Finance" {% if current_user.occupation == 'Accountant / Finance' %}selected{% endif %}>Accountant / Finance</option>
+                <option value="Legal Professional" {% if current_user.occupation == 'Legal Professional' %}selected{% endif %}>Legal Professional</option>
+                <option value="Retired" {% if current_user.occupation == 'Retired' %}selected{% endif %}>Retired</option>
+                <option value="Homemaker" {% if current_user.occupation == 'Homemaker' %}selected{% endif %}>Homemaker</option>
+                <option value="Other" {% if current_user.occupation == 'Other' %}selected{% endif %}>Other</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="digital_goal">Digital wellness goal</label>
+              <textarea class="form-control" id="digital_goal" name="digital_goal" rows="2"
+                        placeholder="e.g., Reduce non-productive screen time to 2 hours/day, improve sleep quality...">{{ current_user.digital_goal or '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="bio">Bio / About</label>
+              <textarea class="form-control" id="bio" name="bio" rows="2" maxlength="200"
+                        placeholder="Short description about you (max 200 characters)">{{ current_user.bio or '' }}</textarea>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary mt-3">Save profile</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<link href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.js"></script>
+<div class="modal fade" id="avatarCropModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Adjust your photo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted">Drag to move, scroll to zoom. Crop will be square and shown in a circle on your profile.</p>
+        <div class="img-container" style="max-height: 70vh;">
+          <img id="avatarCropImage" src="" alt="Crop" style="max-width: 100%;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="avatarCropApply">Use photo</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const fileInput = document.getElementById("avatar");
+    const previewEl = document.getElementById("profileAvatarPreview");
+    const modalEl = document.getElementById("avatarCropModal");
+    const cropImage = document.getElementById("avatarCropImage");
+    const applyBtn = document.getElementById("avatarCropApply");
+
+    if (!fileInput || !previewEl || !modalEl) return;
+
+    let cropper = null;
+    let currentObjectUrl = null;
+
+    fileInput.addEventListener("change", function (e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        alert("Please select an image file (JPG, PNG, GIF).");
+        fileInput.value = "";
+        return;
+      }
+      if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+      currentObjectUrl = URL.createObjectURL(file);
+      cropImage.src = currentObjectUrl;
+      var modal = new bootstrap.Modal(modalEl);
+      modal.show();
+      cropImage.onload = function () {
+        if (cropper) cropper.destroy();
+        cropper = new Cropper(cropImage, {
+          aspectRatio: 1,
+          viewMode: 1,
+          dragMode: "move",
+          autoCropArea: 0.8
+        });
+      };
+    });
+
+    modalEl.addEventListener("hidden.bs.modal", function () {
+      if (cropper) { cropper.destroy(); cropper = null; }
+      if (currentObjectUrl) { URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
+      fileInput.value = "";
+    });
+
+    applyBtn.addEventListener("click", function () {
+      if (!cropper) return;
+      var canvas = cropper.getCroppedCanvas({ width: 800, height: 800 });
+      canvas.toBlob(function (blob) {
+        if (!blob) return;
+        var formData = new FormData();
+        formData.append("avatar", blob, "avatar.jpg");
+        applyBtn.disabled = true;
+        fetch("{{ url_for('profile.upload_avatar') }}", {
+          method: "POST",
+          body: formData,
+          headers: { "X-Requested-With": "XMLHttpRequest" }
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok && data.url) {
+              var el = document.getElementById("profileAvatarPreview");
+              if (el) {
+                var url = data.url + "?t=" + Date.now();
+                if (el.tagName === "IMG") el.src = url; else el.outerHTML = "<img id=\"profileAvatarPreview\" src=\"" + url + "\" alt=\"Profile picture\" class=\"profile-avatar-img\">";
+              }
+              bootstrap.Modal.getInstance(modalEl).hide();
+            } else {
+              alert(data.error || "Upload failed.");
+            }
+          })
+          .catch(function () { alert("Upload failed."); })
+          .finally(function () { applyBtn.disabled = false; });
+      }, "image/jpeg", 0.9);
+    });
+  });
+</script>
+{% endblock %}
+

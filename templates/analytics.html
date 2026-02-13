@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Analytics | Digital Wellness Platform{% endblock %}
+{% block page_content %}
+<h2 class="mb-4">Analytics</h2>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Daily screen time (last 14 days)</h5>
+        <canvas id="dailyScreenTimeAnalytics" height="150"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Weekly usage (total min/week)</h5>
+        <canvas id="weeklyUsageChart" height="150"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mt-1">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Category distribution</h5>
+        <p class="small text-muted">Social, Learning, Entertainment, Productivity, Gaming</p>
+        <canvas id="categoryChart" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Stress trend (last 14 days)</h5>
+        <canvas id="stressTrendChart" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mt-1">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Weekly category comparison</h5>
+        <canvas id="weeklyCategoryChart" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 class="mt-4 mb-3">Daily trends by activity</h3>
+<p class="text-muted small mb-3">Compare your progress for each activity over the last 14 days (values in hours).</p>
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Sleep (hours per day)</h5>
+        <canvas id="chartDailySleep" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Work / Study (hours per day)</h5>
+        <canvas id="chartDailyWorkStudy" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Social Media (hours per day)</h5>
+        <canvas id="chartDailySocial" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Learning (hours per day)</h5>
+        <canvas id="chartDailyLearning" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Entertainment (hours per day)</h5>
+        <canvas id="chartDailyEntertainment" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Productivity (hours per day)</h5>
+        <canvas id="chartDailyProductivity" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Gaming (hours per day)</h5>
+        <canvas id="chartDailyGaming" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    fetch("{{ url_for('api.daily_screen_time') }}")
+      .then(r => r.json())
+      .then(data => {
+        const ctx = document.getElementById("dailyScreenTimeAnalytics");
+        if (!ctx) return;
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: data.map(d => d.date),
+            datasets: [{
+              label: "Screen time (min)",
+              data: data.map(d => d.screen_time_minutes),
+              borderColor: "#0d6efd",
+              backgroundColor: "rgba(13, 110, 253, 0.15)",
+              tension: 0.3,
+              fill: true
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } } }
+        });
+      });
+
+    fetch("{{ url_for('api.weekly_usage') }}")
+      .then(r => r.json())
+      .then(data => {
+        const ctx = document.getElementById("weeklyUsageChart");
+        if (!ctx) return;
+        new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: data.map(d => d.week),
+            datasets: [{
+              label: "Weekly screen time (min)",
+              data: data.map(d => d.screen_time_minutes),
+              backgroundColor: "rgba(13, 110, 253, 0.6)"
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+      });
+
+    fetch("{{ url_for('api.category_distribution') }}")
+      .then(r => r.json())
+      .then(data => {
+        const ctx = document.getElementById("categoryChart");
+        if (!ctx) return;
+        const labels = data.map(d => d.category);
+        const values = data.map(d => d.screen_time_minutes);
+        new Chart(ctx, {
+          type: "pie",
+          data: {
+            labels,
+            datasets: [{
+              data: values,
+              backgroundColor: ["#0d6efd", "#198754", "#fd7e14", "#6f42c1", "#dc3545"]
+            }]
+          },
+          options: { responsive: true }
+        });
+      });
+
+    fetch("{{ url_for('api.stress_trend') }}")
+      .then(r => r.json())
+      .then(data => {
+        const ctx = document.getElementById("stressTrendChart");
+        if (!ctx) return;
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: data.map(d => d.date),
+            datasets: [{
+              label: "Stress (1-5)",
+              data: data.map(d => d.stress_level),
+              borderColor: "#dc3545",
+              backgroundColor: "rgba(220, 53, 69, 0.15)",
+              tension: 0.3,
+              fill: true
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 5 } } }
+        });
+      });
+
+    fetch("{{ url_for('api.weekly_category_comparison') }}")
+      .then(r => r.json())
+      .then(data => {
+        const ctx = document.getElementById("weeklyCategoryChart");
+        if (!ctx) return;
+        const colors = ["#0d6efd", "#198754", "#fd7e14", "#6f42c1", "#dc3545"];
+        new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: data.weeks,
+            datasets: data.categories.map((cat, i) => ({
+              label: cat,
+              data: data.series[cat],
+              backgroundColor: colors[i]
+            }))
+          },
+          options: { responsive: true, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+        });
+      });
+
+    // Daily trends by activity (separate graph for each)
+    const dailyCharts = [
+      { id: "chartDailySleep", url: "{{ url_for('api.daily_sleep') }}", color: "#6f42c1", bg: "rgba(111, 66, 193, 0.15)" },
+      { id: "chartDailyWorkStudy", url: "{{ url_for('api.daily_work_study') }}", color: "#0d6efd", bg: "rgba(13, 110, 253, 0.15)" },
+      { id: "chartDailySocial", url: "{{ url_for('api.daily_social') }}", color: "#198754", bg: "rgba(25, 135, 84, 0.15)" },
+      { id: "chartDailyLearning", url: "{{ url_for('api.daily_learning') }}", color: "#fd7e14", bg: "rgba(253, 126, 20, 0.15)" },
+      { id: "chartDailyEntertainment", url: "{{ url_for('api.daily_entertainment') }}", color: "#dc3545", bg: "rgba(220, 53, 69, 0.15)" },
+      { id: "chartDailyProductivity", url: "{{ url_for('api.daily_productivity') }}", color: "#20c997", bg: "rgba(32, 201, 151, 0.15)" },
+      { id: "chartDailyGaming", url: "{{ url_for('api.daily_gaming') }}", color: "#6610f2", bg: "rgba(102, 16, 242, 0.15)" }
+    ];
+    dailyCharts.forEach(function (c) {
+      fetch(c.url)
+        .then(r => r.json())
+        .then(data => {
+          const ctx = document.getElementById(c.id);
+          if (!ctx) return;
+          new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: data.map(d => d.date),
+              datasets: [{
+                label: "Hours",
+                data: data.map(d => d.hours),
+                borderColor: c.color,
+                backgroundColor: c.bg,
+                tension: 0.3,
+                fill: true
+              }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+          });
+        });
+    });
+  });
+</script>
+{% endblock %}
