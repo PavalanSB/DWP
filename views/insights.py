@@ -1,8 +1,9 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 from flask import Blueprint, render_template
 from flask_login import login_required, current_user
 
+from extensions import db
 from models import WellnessSnapshot, Activity
 
 
@@ -12,30 +13,32 @@ insights_bp = Blueprint("insights", __name__, url_prefix="/insights")
 @insights_bp.route("/")
 @login_required
 def insights():
-    latest_snapshot = (
-        WellnessSnapshot.query.filter_by(user_id=current_user.id)
-        .order_by(WellnessSnapshot.snapshot_date.desc())
-        .first()
-    )
+    latest_snapshot = WellnessSnapshot.get_latest_for_user(current_user.id)
     
     # Get previous snapshot for trend comparison
     previous_snapshot = None
     if latest_snapshot:
-        previous_snapshot = (
-            WellnessSnapshot.query.filter_by(user_id=current_user.id)
-            .filter(WellnessSnapshot.snapshot_date < latest_snapshot.snapshot_date)
-            .order_by(WellnessSnapshot.snapshot_date.desc())
-            .first()
-        )
+        snap_dt = latest_snapshot.snapshot_date
+        if isinstance(snap_dt, date) and not isinstance(snap_dt, datetime):
+            snap_dt = datetime.combine(snap_dt, datetime.min.time())
+            
+        data = db.wellness_snapshots.find_one({
+            'user_id': str(current_user.id),
+            'snapshot_date': {'$lt': snap_dt}
+        }, sort=[('snapshot_date', -1)])
+        previous_snapshot = WellnessSnapshot(**data) if data else None
     
     # Get recent activities for trend calculation (last 14 days)
     today = date.today()
     start = today - timedelta(days=13)
-    recent_activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    start_dt = datetime.combine(start, datetime.min.time())
+    today_dt = datetime.combine(today, datetime.max.time())
+    
+    activities_cur = db.activities.find({
+        'user_id': str(current_user.id),
+        'activity_date': {'$gte': start_dt, '$lte': today_dt}
+    })
+    recent_activities = [Activity(**d) for d in activities_cur]
 
     # Calculate metrics from activities
     this_week_total = 0
@@ -47,15 +50,15 @@ def insights():
     this_week_productivity = 0
 
     for activity in recent_activities:
-        days_ago = (today - activity.activity_date).days
+        act_date = activity.activity_date.date() if isinstance(activity.activity_date, datetime) else activity.activity_date
+        days_ago = (today - act_date).days
         
         # Calculate screen time
         screen_time = (
             (activity.social_time or 0) +
             (activity.learning_time or 0) +
             (activity.entertainment_time or 0) +
-            (activity.productivity_time or 0) +
-            (activity.gaming_time or 0)
+            (activity.productivity_time or 0)
         )
         if screen_time == 0:
             screen_time = activity.screen_time_minutes or 0

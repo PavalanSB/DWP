@@ -59,18 +59,13 @@ def profile():
             if avatar_filename:
                 current_user.avatar_filename = avatar_filename
 
-            db.session.commit()
+            current_user.save()
             flash("Profile updated successfully.", "success")
             return redirect(url_for("profile.profile"))
 
     # Wellness summary metrics
-    total_days = (
-        db.session.query(Activity.activity_date)
-        .filter_by(user_id=current_user.id)
-        .distinct()
-        .count()
-    )
-    activities = Activity.query.filter_by(user_id=current_user.id).all()
+    total_days = len(db.activities.distinct('activity_date', {'user_id': str(current_user.id)}))
+    activities = Activity.find_by_user(current_user.id)
     avg_screen = 0
     avg_sleep = 0
     longest_streak = 0
@@ -82,7 +77,6 @@ def profile():
             + (a.learning_time or 0)
             + (a.entertainment_time or 0)
             + (a.productivity_time or 0)
-            + (a.gaming_time or 0)
             or (a.screen_time_minutes or 0)
             for a in activities
         ]
@@ -94,7 +88,8 @@ def profile():
             avg_sleep = sum(sleep_vals) / len(sleep_vals)
 
         # Longest tracking streak (consecutive days with activity)
-        dates = sorted({a.activity_date for a in activities})
+        from datetime import datetime
+        dates = sorted({(a.activity_date.date() if isinstance(a.activity_date, datetime) else a.activity_date) for a in activities})
         streak = 1
         longest_streak = 1
         for i in range(1, len(dates)):
@@ -107,11 +102,7 @@ def profile():
                 longest_streak = streak
 
     # Current wellness score from latest snapshot (reuse mapping used in insights)
-    latest_snapshot = (
-        WellnessSnapshot.query.filter_by(user_id=current_user.id)
-        .order_by(WellnessSnapshot.snapshot_date.desc())
-        .first()
-    )
+    latest_snapshot = WellnessSnapshot.get_latest_for_user(current_user.id)
     wellness_score = None
     if latest_snapshot:
         if latest_snapshot.classification == "Healthy":
@@ -168,7 +159,7 @@ def upload_avatar():
     if not avatar_filename:
         return jsonify({"ok": False, "error": "Invalid or missing image"}), 400
     current_user.avatar_filename = avatar_filename
-    db.session.commit()
+    current_user.save()
     url = url_for("static", filename="uploads/avatars/" + avatar_filename)
     return jsonify({"ok": True, "url": url})
 
@@ -189,7 +180,7 @@ def change_password():
         return redirect(url_for("profile.profile"))
 
     current_user.set_password(new_password)
-    db.session.commit()
+    current_user.save()
 
     flash("Password changed successfully.", "success")
     return redirect(url_for("profile.profile"))

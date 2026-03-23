@@ -34,6 +34,13 @@ class User(UserMixin, db.Model):
 
     # Security metadata
     password_updated_at = db.Column(db.DateTime, nullable=True)
+    # 'local' for username/password accounts, or provider name like 'google', 'facebook'
+    auth_provider = db.Column(db.String(50), default="local", nullable=False)
+
+    # Account Lockout & Admin
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    is_locked = db.Column(db.Boolean, default=False)
+    is_admin = db.Column(db.Boolean, default=False)
 
     activities = db.relationship("Activity", backref="user", lazy=True)
     wellness_snapshots = db.relationship(
@@ -52,14 +59,24 @@ class User(UserMixin, db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    if user_id is None:
+        return None
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return None
+    user = User.query.get(uid)
+    if user is None:
+        from flask import session
+        session.pop("_user_id", None)
+    return user
 
 
 class Activity(db.Model):
     __tablename__ = "activities"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
 
     activity_date = db.Column(db.Date, default=date.today, index=True)
     # Total screen time (minutes); kept for backward compatibility, computed from categories when provided
@@ -73,18 +90,20 @@ class Activity(db.Model):
     learning_time = db.Column(db.Integer, default=0)
     entertainment_time = db.Column(db.Integer, default=0)
     productivity_time = db.Column(db.Integer, default=0)
-    gaming_time = db.Column(db.Integer, default=0)
 
     # Mood tracking
     mood = db.Column(db.String(30), nullable=True)  # Happy, Neutral, Stressed, Tired, Motivated
     stress_level = db.Column(db.Integer, nullable=True)  # 1-5
     energy_level = db.Column(db.Integer, nullable=True)  # 1-5
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 
 class WellnessSnapshot(db.Model):
     __tablename__ = "wellness_snapshots"
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'snapshot_date', name='uq_wellness_snapshot_user_date'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)

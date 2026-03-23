@@ -10,15 +10,22 @@ from models import User, UserSession
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
-def _oauth_user_from_email_name(email, name):
-    """Find user by email or create one (OAuth). New users get a random password."""
-    user = User.query.filter_by(email=email).first()
+def _oauth_user_from_email_name(email, name, provider="google"):
+    """Find user by email or create one (OAuth). New users get a random password.
+
+    Also records the oauth provider in `auth_provider` so we can treat
+    oauth-created accounts differently (for example reauth flows).
+    """
+    user = User.get_by_email(email)
     if user:
+        # If existing user has no provider set, set it now for consistency
+        if not getattr(user, "auth_provider", None):
+            user.auth_provider = provider
+            user.save()
         return user
-    user = User(name=name or "User", email=email)
+    user = User(name=name or "User", email=email, auth_provider=provider)
     user.set_password(secrets.token_urlsafe(32))
-    db.session.add(user)
-    db.session.commit()
+    user.save()
     return user
 
 
@@ -30,8 +37,7 @@ def _create_session_for(user):
         user_id=user.id,
         device_info=device[:255] if device else "Unknown device",
     )
-    db.session.add(session)
-    db.session.commit()
+    session.save()
 
 
 @auth_bp.route("/register", methods=["GET", "POST"])
@@ -49,17 +55,71 @@ def register():
             flash("All fields are required.", "danger")
         elif password != confirm_password:
             flash("Passwords do not match.", "danger")
-        elif User.query.filter_by(email=email).first():
+        elif User.get_by_email(email):
             flash("An account with this email already exists.", "warning")
         else:
             user = User(name=name, email=email)
             user.set_password(password)
-            db.session.add(user)
-            db.session.commit()
+            user.save()
             flash("Registration successful. Please log in.", "success")
             return redirect(url_for("auth.login"))
 
     return render_template("auth/register.html")
+
+
+@auth_bp.route("/google-register", methods=["GET", "POST"])
+def google_register():
+    """Register a new user account after Google OAuth verification."""
+    from flask import session as flask_session
+    
+    if current_user.is_authenticated:
+        return redirect(url_for("dashboard.dashboard"))
+    
+    # Check if user came from Google OAuth
+    google_email = flask_session.get('google_email')
+    google_name = flask_session.get('google_name')
+    
+    if not google_email:
+        flash("Invalid registration request. Please sign in with Google again.", "danger")
+        return redirect(url_for("auth.google_login"))
+    
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+        
+        # Email should match Google email
+        if email != google_email:
+            flash("Email must match your Google account email.", "danger")
+            return redirect(url_for("auth.google_register"))
+        
+        if not name or not email or not password:
+            flash("All fields are required.", "danger")
+        elif password != confirm_password:
+            flash("Passwords do not match.", "danger")
+        elif User.get_by_email(email):
+            flash("An account with this email already exists.", "warning")
+        else:
+            # Create user with Google provider
+            user = User(name=name, email=email, auth_provider="google")
+            user.set_password(password)
+            user.save()
+            
+            # Clear Google session data
+            flask_session.pop('google_email', None)
+            flask_session.pop('google_name', None)
+            
+            # Log them in
+            login_user(user)
+            _create_session_for(user)
+            flash("Account created successfully with Google. You are now logged in.", "success")
+            return redirect(url_for("dashboard.dashboard"))
+    
+    # GET request - show form with pre-filled Google data
+    return render_template("auth/google_register.html", 
+                         google_email=google_email, 
+                         google_name=google_name)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -72,13 +132,34 @@ def login():
         password = request.form.get("password", "")
         remember = request.form.get("remember") == "1"
 
-        user = User.query.filter_by(email=email).first()
-        if user and user.check_password(password):
-            login_user(user, remember=remember)
-            _create_session_for(user)
-            flash("Logged in successfully.", "success")
-            next_page = request.args.get("next") or url_for("dashboard.dashboard")
-            return redirect(next_page)
+        user = User.get_by_email(email)
+        if user:
+            if getattr(user, "is_locked", False):
+                flash("Your account is locked. Please contact an admin to unlock.", "danger")
+                return render_template("auth/login.html")
+
+            if user.check_password(password):
+                # Reset failed login attempts on successful login
+                if getattr(user, "failed_login_attempts", 0) > 0:
+                    user.failed_login_attempts = 0
+                    user.save()
+
+                login_user(user, remember=remember)
+                _create_session_for(user)
+                flash("Logged in successfully.", "success")
+                next_page = request.args.get("next") or url_for("dashboard.dashboard")
+                return redirect(next_page)
+            else:
+                # Increment failed attempts
+                user.failed_login_attempts = getattr(user, "failed_login_attempts", 0) + 1
+                if user.failed_login_attempts >= 3:
+                    user.is_locked = True
+                    user.save()
+                    flash("Incorrect password. Your account is now locked due to 3 failed attempts.", "danger")
+                else:
+                    attempts_left = 3 - user.failed_login_attempts
+                    user.save()
+                    flash(f"Incorrect password. You have {attempts_left} attempt(s) left.", "danger")
         else:
             flash("Invalid email or password.", "danger")
 
@@ -101,7 +182,14 @@ def google_login():
     if not oauth or not getattr(oauth, "google", None):
         flash("Sign in with Google is not configured.", "warning")
         return redirect(url_for("auth.login"))
-    redirect_uri = url_for("auth.google_callback", _external=True)
+    
+    # Store action to distinguish between login and signup
+    action = request.args.get('action', 'login')
+    from flask import session as flask_session
+    flask_session['google_auth_action'] = action
+    
+    # Use localhost explicitly to avoid 127.0.0.1 vs localhost mismatch
+    redirect_uri = request.host_url.replace('127.0.0.1', 'localhost').rstrip('/') + url_for("auth.google_callback")
     return oauth.google.authorize_redirect(redirect_uri)
 
 
@@ -113,8 +201,15 @@ def google_callback():
         return redirect(url_for("auth.login"))
     try:
         token = oauth.google.authorize_access_token()
-    except Exception:
-        flash("Sign in with Google was cancelled or failed.", "warning")
+    except Exception as e:
+        error_msg = str(e)
+        if "redirect_uri_mismatch" in error_msg:
+            flash(
+                "OAuth setup error: Redirect URI mismatch. Please ensure both 'http://localhost:5000/auth/google/callback' and 'http://127.0.0.1:5000/auth/google/callback' are registered in Google Cloud Console.",
+                "danger",
+            )
+        else:
+            flash("Sign in with Google was cancelled or failed.", "warning")
         return redirect(url_for("auth.login"))
     userinfo = token.get("userinfo")
     if not userinfo:
@@ -125,49 +220,35 @@ def google_callback():
     if not email:
         flash("Google did not provide an email address.", "warning")
         return redirect(url_for("auth.login"))
-    user = _oauth_user_from_email_name(email, name)
-    login_user(user)
-    _create_session_for(user)
-    flash("Signed in with Google.", "success")
-    return redirect(request.args.get("next") or url_for("dashboard.dashboard"))
-
-
-@auth_bp.route("/facebook")
-def facebook_login():
-    if current_user.is_authenticated:
-        return redirect(url_for("dashboard.dashboard"))
-    oauth = getattr(current_app, "oauth", None)
-    if not oauth or not getattr(oauth, "facebook", None):
-        flash("Sign in with Facebook is not configured.", "warning")
-        return redirect(url_for("auth.login"))
-    redirect_uri = url_for("auth.facebook_callback", _external=True)
-    return oauth.facebook.authorize_redirect(redirect_uri)
-
-
-@auth_bp.route("/facebook/callback")
-def facebook_callback():
-    oauth = getattr(current_app, "oauth", None)
-    if not oauth or not getattr(oauth, "facebook", None):
-        flash("Sign in with Facebook is not configured.", "warning")
-        return redirect(url_for("auth.login"))
-    try:
-        token = oauth.facebook.authorize_access_token()
-    except Exception:
-        flash("Sign in with Facebook was cancelled or failed.", "warning")
-        return redirect(url_for("auth.login"))
-    resp = oauth.facebook.get("me", params={"fields": "id,name,email"})
-    if resp.status_code != 200:
-        flash("Could not get your Facebook profile.", "warning")
-        return redirect(url_for("auth.login"))
-    profile = resp.json()
-    email = (profile.get("email") or "").strip().lower()
-    name = (profile.get("name") or "User").strip()
-    if not email:
-        flash("Facebook did not provide an email address. Please allow email permission.", "warning")
-        return redirect(url_for("auth.login"))
-    user = _oauth_user_from_email_name(email, name)
-    login_user(user)
-    _create_session_for(user)
-    flash("Signed in with Facebook.", "success")
-    return redirect(request.args.get("next") or url_for("dashboard.dashboard"))
+    
+    # Check action
+    from flask import session as flask_session
+    action = flask_session.get('google_auth_action', 'login')
+    
+    # Check if user already exists
+    user = User.get_by_email(email)
+    
+    if action == 'register':
+        if user:
+            # User exists but clicked Sign Up
+            flash("An account with this email already exists. Please log in.", "warning")
+            return redirect(url_for("auth.login"))
+        else:
+            # New user, proceed to register
+            flask_session['google_email'] = email
+            flask_session['google_name'] = name
+            flash("Please complete your registration to create an account.", "info")
+            return redirect(url_for("auth.google_register"))
+            
+    else: # login action
+        if user:
+            # User exists - log them in
+            login_user(user)
+            _create_session_for(user)
+            flash("Signed in with Google.", "success")
+            return redirect(request.args.get("next") or url_for("dashboard.dashboard"))
+        else:
+            # User doesn't exist but clicked Login
+            flash("No account found with this email. Please sign up.", "info")
+            return redirect(url_for("auth.register"))
 

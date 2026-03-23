@@ -1,7 +1,7 @@
 """
 Wellness metrics: streak, consistency score, wellness score (0-100), burnout detection.
 """
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import List, Optional, Tuple
 
 # Default thresholds for burnout detection (rule-based)
@@ -12,8 +12,18 @@ BURNOUT_STRESS_THRESHOLD = 4        # stress_level >= 4
 
 def get_activity_dates_sorted(activities) -> List[date]:
     """Return sorted list of unique activity dates (descending)."""
-    dates = sorted({a.activity_date for a in activities}, reverse=True)
-    return dates
+    dates_set = set()
+    for a in activities:
+        d = a.activity_date
+        if isinstance(d, datetime):
+            d = d.date()
+        elif isinstance(d, str):
+            try:
+                d = date.fromisoformat(d[:10])
+            except ValueError:
+                pass
+        dates_set.add(d)
+    return sorted(dates_set, reverse=True)
 
 
 def calculate_streak(activities) -> int:
@@ -51,8 +61,16 @@ def calculate_consistency_score(activities, goals, days: int = 7) -> float:
     start = today - timedelta(days=days)
     by_date = {}
     for a in activities:
-        if start <= a.activity_date <= today:
-            by_date.setdefault(a.activity_date, []).append(a)
+        d = a.activity_date
+        if isinstance(d, datetime):
+            d = d.date()
+        elif isinstance(d, str):
+            try:
+                d = date.fromisoformat(d[:10])
+            except ValueError:
+                continue
+        if start <= d <= today:
+            by_date.setdefault(d, []).append(a)
 
     if not by_date:
         return 0.0

@@ -2,7 +2,7 @@
 Machine learning module for digital wellness classification.
 
 Uses a Decision Tree trained on:
-  social_time, learning_time, entertainment_time, productivity_time, gaming_time,
+  social_time, learning_time, entertainment_time, productivity_time,
   sleep_hours, stress_level, energy_level.
 
 Outputs: Healthy, Moderate, Unhealthy, Burnout Risk.
@@ -53,8 +53,8 @@ class WellnessModel:
     """
     Decision Tree classifier for digital wellness.
 
-    Features (8): social_time, learning_time, entertainment_time, productivity_time,
-                  gaming_time, sleep_hours, stress_level, energy_level.
+    Features (7): social_time, learning_time, entertainment_time, productivity_time,
+                  sleep_hours, stress_level, energy_level.
     """
 
     def __init__(self) -> None:
@@ -64,18 +64,18 @@ class WellnessModel:
 
     def _train_on_synthetic_data(self) -> None:
         """Train on synthetic patterns. Safe defaults for missing mood/stress/energy."""
-        # [social, learning, entertainment, productivity, gaming, sleep, stress, energy]
+        # [social, learning, entertainment, productivity, sleep, stress, energy]
         X = np.array([
-            [60, 90, 45, 120, 30, 8, 2, 4],   # Healthy
-            [90, 60, 60, 90, 20, 7.5, 2, 4],
-            [120, 45, 90, 60, 45, 7, 3, 3],    # Moderate
-            [150, 30, 120, 45, 60, 6.5, 3, 3],
-            [180, 20, 150, 30, 90, 6, 4, 2],   # Unhealthy
-            [200, 15, 180, 20, 120, 5.5, 4, 2],
-            [240, 10, 200, 15, 150, 5, 5, 1],  # Burnout Risk
-            [220, 20, 190, 25, 130, 5, 5, 2],
-            [50, 120, 30, 150, 10, 8, 1, 5],   # Healthy
-            [100, 80, 70, 80, 30, 7, 3, 3],   # Moderate
+            [60, 90, 75, 120, 8, 2, 4],   # Healthy
+            [90, 60, 80, 90, 7.5, 2, 4],
+            [120, 45, 135, 60, 7, 3, 3],    # Moderate
+            [150, 30, 180, 45, 6.5, 3, 3],
+            [180, 20, 240, 30, 6, 4, 2],   # Unhealthy
+            [200, 15, 300, 20, 5.5, 4, 2],
+            [240, 10, 350, 15, 5, 5, 1],  # Burnout Risk
+            [220, 20, 320, 25, 5, 5, 2],
+            [50, 120, 40, 150, 8, 1, 5],   # Healthy
+            [100, 80, 100, 80, 7, 3, 3],   # Moderate
         ])
         y = np.array([
             "Healthy", "Healthy", "Moderate", "Moderate",
@@ -91,7 +91,6 @@ class WellnessModel:
         learning_time: int,
         entertainment_time: int,
         productivity_time: int,
-        gaming_time: int,
         sleep_hours: float,
         stress_level: int,
         energy_level: int,
@@ -105,7 +104,7 @@ class WellnessModel:
 
         features = np.array([[
             social_time, learning_time, entertainment_time,
-            productivity_time, gaming_time, sleep_hours, stress, energy
+            productivity_time, sleep_hours, stress, energy
         ]])
         label = self.model.predict(features)[0]
         recommendation = _recommendation_for_label(label)

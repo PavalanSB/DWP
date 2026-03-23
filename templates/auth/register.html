@@ -21,25 +21,20 @@
     </div>
     <div class="mb-3 input-with-icon">
       <i class="bi bi-lock input-icon"></i>
-      <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="Confirm password" required>
-      <button type="button" class="password-toggle" data-target="confirm_password" aria-label="Toggle confirm password visibility">
+      <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+        placeholder="Confirm password" required>
+      <button type="button" class="password-toggle" data-target="confirm_password"
+        aria-label="Toggle confirm password visibility">
         <i class="bi bi-eye-slash"></i>
       </button>
     </div>
     <button type="submit" class="btn btn-login-primary w-100 mb-3">SIGN UP</button>
   </form>
   <p class="auth-divider text-center">Or sign up with</p>
-  <div class="row g-2">
-    <div class="col-6">
-      <a href="{{ url_for('auth.facebook_login') }}" class="btn btn-facebook w-100">
-        <i class="bi bi-facebook me-2"></i>Facebook
-      </a>
-    </div>
-    <div class="col-6">
-      <a href="{{ url_for('auth.google_login') }}" class="btn btn-google w-100">
-        <i class="bi bi-google me-2"></i>Google
-      </a>
-    </div>
+  <div class="d-grid">
+    <a href="{{ url_for('auth.google_login', action='register') }}" class="btn btn-google w-100">
+      <i class="bi bi-google me-2"></i>Google
+    </a>
   </div>
   <p class="auth-footer mt-3 mb-0">
     Already a member? <a href="{{ url_for('auth.login') }}">Sign in</a>

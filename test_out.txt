@@ -1,0 +1,28 @@
+Starting script...
+Importing create_app...
+Imported outcreate_app.
+[OAuth Setup] Google Client ID loaded: True
+[OAuth Setup] Client ID (first 20 chars): 1006939819073-gh8mun...
+[OAuth Setup] Google OAuth registered successfully
+Created app.
+Starting test...
+
+--- Test 1: 3 Failed Logins ---
+Attempt 1 completed. Redirected to: No redirect
+Attempt 2 completed. Redirected to: No redirect
+Attempt 3 completed. Redirected to: No redirect
+Attempt 4 (Locked) HTML Contains 'contact an admin': True
+
+--- Test 2: Admin Login ---
+Admin login redirected to: /dashboard/
+
+--- Test 3: Admin Dashboard ---
+Admin Dashboard loaded: True
+Shows locked user: True
+
+--- Test 4: Unlock User ---
+Unlock redirected to: /admin/
+
+--- Test 5: Login Unlocked User ---
+User login redirected to: /dashboard/
+Script finished.

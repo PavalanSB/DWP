@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Complete Google Sign-Up - DWP{% endblock %}
+
+{% block page_content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <h2 class="card-title text-center mb-1">
+                        <img src="https://www.google.com/favicon.ico" alt="Google" width="20" height="20"> Complete Your
+                        Registration
+                    </h2>
+                    <p class="text-center text-muted mb-4">Create a password to complete your account setup</p>
+
+                    <form method="POST">
+                        <!-- Name field -->
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="name" name="name"
+                                value="{{ google_name or '' }}" required>
+                            <small class="form-text text-muted">From your Google account</small>
+                        </div>
+
+                        <!-- Email field (read-only) -->
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ google_email }}"
+                                readonly>
+                            <small class="form-text text-muted">Verified by Google</small>
+                        </div>
+
+                        <!-- Password field -->
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required
+                                placeholder="Create a strong password">
+                            <small class="form-text text-muted">At least 6 characters</small>
+                        </div>
+
+                        <!-- Confirm Password field -->
+                        <div class="mb-4">
+                            <label for="confirm_password" class="form-label">Confirm Password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                                required placeholder="Confirm your password">
+                        </div>
+
+                        <!-- Submit button -->
+                        <button type="submit" class="btn btn-primary w-100 mb-3">
+                            Create Account & Sign In
+                        </button>
+
+                        <!-- Info box -->
+                        <div class="alert alert-info alert-sm" role="alert">
+                            <strong>Note:</strong> Your Google account is verified, but you need to set a password to
+                            secure your Digital Wellness account.
+                        </div>
+                    </form>
+
+                    <hr>
+
+                    <!-- Back to login link -->
+                    <p class="text-center">
+                        <small>
+                            Already have an account?
+                            <a href="{{ url_for('auth.login') }}">Sign in here</a>
+                        </small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .alert-sm {
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}

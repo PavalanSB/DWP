@@ -3,7 +3,7 @@ API endpoints for dashboard and analytics charts.
 """
 from datetime import date, timedelta
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 
 from models import Activity, WellnessSnapshot
@@ -16,23 +16,59 @@ def _daterange(start_date, end_date):
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
 
+def _get_activities(start_date, end_date):
+    from extensions import db
+    from datetime import datetime, date
+    
+    # Fallback to client-side filtering to gracefully handle migrated SQLite string dates
+    activities_cur = db.activities.find({'user_id': str(current_user.id)})
+    
+    activities = []
+    for d in activities_cur:
+        act = Activity(**d)
+        
+        act_date = act.activity_date
+        if isinstance(act_date, datetime):
+            act_date = act_date.date()
+        elif isinstance(act_date, str):
+            try:
+                act_date = date.fromisoformat(act_date[:10].replace('Z', ''))
+            except ValueError:
+                continue
+        elif not isinstance(act_date, date):
+            continue
+            
+        act.activity_date = act_date
+        
+        if start_date <= act_date <= end_date:
+            activities.append(act)
+            
+    return activities
+
+
+def _get_float(obj, field):
+    """Safely cast BSON migrated fields to float."""
+    val = getattr(obj, field, 0)
+    if val is None:
+        return 0.0
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return 0.0
 
 @api_bp.route("/analytics/daily-screen-time")
 @login_required
 def daily_screen_time():
+    days = request.args.get("days", default=14, type=int)
     today = date.today()
-    start = today - timedelta(days=13)
+    start = today - timedelta(days=days - 1)
 
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
 
     by_date = {}
     for a in activities:
         by_date.setdefault(a.activity_date, 0)
-        by_date[a.activity_date] += getattr(a, "screen_time_minutes", 0) or 0
+        by_date[a.activity_date] += _get_float(a, "screen_time_minutes")
 
     data = [
         {"date": d.isoformat(), "screen_time_minutes": by_date.get(d, 0)}
@@ -47,18 +83,14 @@ def weekly_usage():
     today = date.today()
     start = today - timedelta(days=27)
 
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
 
     by_week = {}
     for a in activities:
         year, week_num, _ = a.activity_date.isocalendar()
         key = f"{year}-W{week_num}"
         by_week.setdefault(key, 0)
-        by_week[key] += getattr(a, "screen_time_minutes", 0) or 0
+        by_week[key] += _get_float(a, "screen_time_minutes")
 
     data = [
         {"week": week, "screen_time_minutes": minutes}
@@ -70,21 +102,24 @@ def weekly_usage():
 @api_bp.route("/analytics/category-distribution")
 @login_required
 def category_distribution():
-    """Pie chart: Social, Learning, Entertainment, Productivity, Gaming (from category breakdown)."""
-    activities = Activity.query.filter_by(user_id=current_user.id).all()
+    """Pie chart: Social, Learning, Entertainment, Productivity."""
+    days = request.args.get("days", default=7, type=int)
+    today = date.today()
+    start = today - timedelta(days=days - 1)
+
+    activities = _get_activities(start, today)
+    
     totals = {
         "Social Media": 0,
         "Learning": 0,
         "Entertainment": 0,
         "Productivity": 0,
-        "Gaming": 0,
     }
     for a in activities:
-        totals["Social Media"] += getattr(a, "social_time", 0) or 0
-        totals["Learning"] += getattr(a, "learning_time", 0) or 0
-        totals["Entertainment"] += getattr(a, "entertainment_time", 0) or 0
-        totals["Productivity"] += getattr(a, "productivity_time", 0) or 0
-        totals["Gaming"] += getattr(a, "gaming_time", 0) or 0
+        totals["Social Media"] += _get_float(a, "social_time")
+        totals["Learning"] += _get_float(a, "learning_time")
+        totals["Entertainment"] += _get_float(a, "entertainment_time")
+        totals["Productivity"] += _get_float(a, "productivity_time")
 
     data = [{"category": k, "screen_time_minutes": v} for k, v in totals.items()]
     return jsonify(data)
@@ -96,15 +131,12 @@ def mood_trend():
     """Last 14 days: mood per day (for mood trend chart)."""
     today = date.today()
     start = today - timedelta(days=13)
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
 
     by_date = {}
     for a in activities:
-        by_date[a.activity_date] = getattr(a, "mood", None) or "Not set"
+        mood = getattr(a, "mood", None)
+        by_date[a.activity_date] = mood if mood else "Not set"
 
     # Map mood to number for line chart
     mood_order = {"Happy": 5, "Motivated": 4, "Neutral": 3, "Tired": 2, "Stressed": 1, "Not set": 0}
@@ -125,22 +157,21 @@ def stress_trend():
     """Last 14 days: average stress level per day."""
     today = date.today()
     start = today - timedelta(days=13)
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
 
     by_date = {}
     for a in activities:
         stress = getattr(a, "stress_level", None)
         if stress is not None:
-            by_date.setdefault(a.activity_date, []).append(stress)
+            try:
+                by_date.setdefault(a.activity_date, []).append(float(stress))
+            except (ValueError, TypeError):
+                pass
 
     data = [
         {
             "date": d.isoformat(),
-            "stress_level": sum(by_date[d]) / len(by_date[d]) if d in by_date else None,
+            "stress_level": sum(by_date[d]) / len(by_date[d]) if d in by_date else 0,
         }
         for d in _daterange(start, today)
     ]
@@ -153,24 +184,19 @@ def weekly_category_comparison():
     """Last 4 weeks: total minutes per category per week."""
     today = date.today()
     start = today - timedelta(days=27)
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
 
-    categories = ["Social Media", "Learning", "Entertainment", "Productivity", "Gaming"]
+    categories = ["Social Media", "Learning", "Entertainment", "Productivity"]
     by_week = {}
     for a in activities:
         year, week_num, _ = a.activity_date.isocalendar()
         key = f"{year}-W{week_num}"
         if key not in by_week:
             by_week[key] = {c: 0 for c in categories}
-        by_week[key]["Social Media"] += getattr(a, "social_time", 0) or 0
-        by_week[key]["Learning"] += getattr(a, "learning_time", 0) or 0
-        by_week[key]["Entertainment"] += getattr(a, "entertainment_time", 0) or 0
-        by_week[key]["Productivity"] += getattr(a, "productivity_time", 0) or 0
-        by_week[key]["Gaming"] += getattr(a, "gaming_time", 0) or 0
+        by_week[key]["Social Media"] += _get_float(a, "social_time")
+        by_week[key]["Learning"] += _get_float(a, "learning_time")
+        by_week[key]["Entertainment"] += _get_float(a, "entertainment_time")
+        by_week[key]["Productivity"] += _get_float(a, "productivity_time")
 
     weeks = sorted(by_week.keys())
     data = {
@@ -204,14 +230,10 @@ def daily_sleep():
     """Last 14 days: sleep hours per day (for sleep analytics chart)."""
     today = date.today()
     start = today - timedelta(days=13)
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
     return jsonify(_daily_series(
         activities, start, today, "hours",
-        lambda a: round((getattr(a, "sleep_hours", 0) or 0), 2),
+        lambda a: round(_get_float(a, "sleep_hours"), 2),
     ))
 
 
@@ -221,14 +243,10 @@ def daily_work_study():
     """Last 14 days: work/study hours per day."""
     today = date.today()
     start = today - timedelta(days=13)
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
     return jsonify(_daily_series(
         activities, start, today, "hours",
-        lambda a: round((getattr(a, "work_study_hours", 0) or 0), 2),
+        lambda a: round(_get_float(a, "work_study_hours"), 2),
     ))
 
 
@@ -238,14 +256,10 @@ def daily_social():
     """Last 14 days: social media time in hours per day."""
     today = date.today()
     start = today - timedelta(days=13)
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
     return jsonify(_daily_series(
         activities, start, today, "hours",
-        lambda a: round((getattr(a, "social_time", 0) or 0) / 60.0, 2),
+        lambda a: round(_get_float(a, "social_time") / 60.0, 2),
     ))
 
 
@@ -255,14 +269,10 @@ def daily_learning():
     """Last 14 days: learning time in hours per day."""
     today = date.today()
     start = today - timedelta(days=13)
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
     return jsonify(_daily_series(
         activities, start, today, "hours",
-        lambda a: round((getattr(a, "learning_time", 0) or 0) / 60.0, 2),
+        lambda a: round(_get_float(a, "learning_time") / 60.0, 2),
     ))
 
 
@@ -272,14 +282,10 @@ def daily_entertainment():
     """Last 14 days: entertainment time in hours per day."""
     today = date.today()
     start = today - timedelta(days=13)
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
     return jsonify(_daily_series(
         activities, start, today, "hours",
-        lambda a: round((getattr(a, "entertainment_time", 0) or 0) / 60.0, 2),
+        lambda a: round(_get_float(a, "entertainment_time") / 60.0, 2),
     ))
 
 
@@ -289,42 +295,18 @@ def daily_productivity():
     """Last 14 days: productivity time in hours per day."""
     today = date.today()
     start = today - timedelta(days=13)
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
+    activities = _get_activities(start, today)
     return jsonify(_daily_series(
         activities, start, today, "hours",
-        lambda a: round((getattr(a, "productivity_time", 0) or 0) / 60.0, 2),
+        lambda a: round(_get_float(a, "productivity_time") / 60.0, 2),
     ))
 
-
-@api_bp.route("/analytics/daily-gaming")
-@login_required
-def daily_gaming():
-    """Last 14 days: gaming time in hours per day."""
-    today = date.today()
-    start = today - timedelta(days=13)
-    activities = Activity.query.filter(
-        Activity.user_id == current_user.id,
-        Activity.activity_date >= start,
-        Activity.activity_date <= today,
-    ).all()
-    return jsonify(_daily_series(
-        activities, start, today, "hours",
-        lambda a: round((getattr(a, "gaming_time", 0) or 0) / 60.0, 2),
-    ))
 
 
 @api_bp.route("/insights/latest")
 @login_required
 def latest_insights():
-    snapshot = (
-        WellnessSnapshot.query.filter_by(user_id=current_user.id)
-        .order_by(WellnessSnapshot.snapshot_date.desc())
-        .first()
-    )
+    snapshot = WellnessSnapshot.get_latest_for_user(current_user.id)
     if not snapshot:
         return jsonify(
             {

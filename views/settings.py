@@ -1,7 +1,7 @@
 """
 Settings: theme, notifications, burnout alerts, mood tracking, daily goals, password, data reset.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, session
 from flask_login import login_required, current_user, logout_user
 import csv
 import io
@@ -58,36 +58,31 @@ def settings():
         study_target = _float_or_none(request.form.get("study_target"))
         sleep_target = _float_or_none(request.form.get("sleep_target"))
 
-        goals = Goal.query.filter_by(user_id=current_user.id).first()
+        goals = Goal.get_by_user(current_user.id)
         if goals is None:
             goals = Goal(user_id=current_user.id)
-            db.session.add(goals)
         goals.screen_limit = screen_limit
         goals.study_target = study_target
         goals.sleep_target = sleep_target
 
-        db.session.commit()
+        goals.save()
+        current_user.save()
 
         flash("Settings updated.", "success")
         return redirect(url_for("settings.settings"))
 
-    goals = Goal.query.filter_by(user_id=current_user.id).first()
+    goals = Goal.get_by_user(current_user.id)
 
     # Security info
-    last_session = (
-        UserSession.query.filter_by(user_id=current_user.id)
-        .order_by(UserSession.login_time.desc())
-        .first()
-    )
+    last_session = None
+    sess_list = UserSession.get_by_user(current_user.id)
+    if sess_list:
+        last_session = sess_list[0]
     last_login = last_session.login_time if last_session else None
     password_changed = current_user.password_updated_at
 
     # Active sessions
-    active_sessions = (
-        UserSession.query.filter_by(user_id=current_user.id, is_active=True)
-        .order_by(UserSession.login_time.desc())
-        .all()
-    )
+    active_sessions = [s for s in sess_list if getattr(s, 'is_active', False)]
 
     return render_template(
         "settings.html",
@@ -101,10 +96,9 @@ def settings():
 @settings_bp.route("/reset-data", methods=["POST"])
 @login_required
 def reset_data():
-    Activity.query.filter_by(user_id=current_user.id).delete()
-    WellnessSnapshot.query.filter_by(user_id=current_user.id).delete()
-    # Keep goals; optionally clear: Goal.query.filter_by(user_id=current_user.id).delete()
-    db.session.commit()
+    db.activities.delete_many({'user_id': str(current_user.id)})
+    db.wellness_snapshots.delete_many({'user_id': str(current_user.id)})
+    # Keep goals; optionally clear: db.goals.delete_many({'user_id': str(current_user.id)})
 
     flash("All activity data has been reset.", "info")
     return redirect(url_for("settings.settings"))
@@ -116,25 +110,124 @@ def delete_account():
     """Permanently delete the current user's account and all related data."""
     password = request.form.get("confirm_password", "")
     if not current_user.check_password(password):
+        # If the user originally signed up using an OAuth provider, they
+        # may not know the local (random) password we generated. In that
+        # case initiate a re-auth flow with their provider so they can
+        # confirm account deletion.
+        provider = getattr(current_user, "auth_provider", "local")
+        if provider and provider != "local":
+            flash(
+                f"You signed in via {provider.capitalize()}. Please re-authenticate to confirm account deletion.",
+                "warning",
+            )
+            return redirect(url_for("settings.reauth_delete", provider=provider))
+
         flash("Password is incorrect. Account not deleted.", "danger")
         return redirect(url_for("settings.settings"))
 
     user_id = current_user.id
 
     # Delete related records first
-    Activity.query.filter_by(user_id=user_id).delete()
-    WellnessSnapshot.query.filter_by(user_id=user_id).delete()
-    Goal.query.filter_by(user_id=user_id).delete()
-    UserSession.query.filter_by(user_id=user_id).delete()
+    user_id_str = str(user_id)
+    db.activities.delete_many({'user_id': user_id_str})
+    db.wellness_snapshots.delete_many({'user_id': user_id_str})
+    db.goals.delete_many({'user_id': user_id_str})
+    db.user_sessions.delete_many({'user_id': user_id_str})
 
     # Delete the user account
-    User.query.filter_by(id=user_id).delete()
-
-    db.session.commit()
+    from bson import ObjectId
+    db.users.delete_one({'_id': ObjectId(user_id_str)})
 
     logout_user()
+    session.clear()
     flash("Your account has been deleted permanently.", "info")
-    return redirect(url_for("landing"))
+    resp = redirect(url_for("landing"))
+    # Ensure cookie is cleared
+    resp.delete_cookie('session')
+    return resp
+
+
+@settings_bp.route("/delete-account/reauth/<provider>")
+@login_required
+def reauth_delete(provider):
+    """Start an OAuth re-authentication for providers like 'google'.
+
+    After successful provider auth we'll handle confirmation in
+    `confirm_delete` which performs the actual deletion if the returned
+    email matches the current user's email.
+    """
+    from flask import current_app
+
+    # Validate provider
+    if provider.lower() not in ["google", "facebook"]:
+        flash("Invalid provider.", "danger")
+        return redirect(url_for("settings.settings"))
+
+    oauth = getattr(current_app, "oauth", None)
+    if not oauth or not getattr(oauth, provider, None):
+        flash(f"Sign in with {provider.capitalize()} is not configured.", "warning")
+        return redirect(url_for("settings.settings"))
+
+    try:
+        # Use localhost explicitly to avoid 127.0.0.1 vs localhost mismatch
+        redirect_uri = request.host_url.replace('127.0.0.1', 'localhost').rstrip('/') + url_for("settings.confirm_delete", provider=provider)
+        return getattr(oauth, provider).authorize_redirect(redirect_uri, prompt="login")
+    except Exception as e:
+        flash(f"Authentication setup failed: {str(e)}. Please try again or contact support.", "danger")
+        return redirect(url_for("settings.settings"))
+
+
+@settings_bp.route("/delete-account/confirm/<provider>")
+@login_required
+def confirm_delete(provider):
+    """Handle OAuth callback to confirm account deletion."""
+    from flask import current_app
+
+    # Validate provider
+    if provider.lower() not in ["google", "facebook"]:
+        flash("Invalid provider.", "danger")
+        return redirect(url_for("settings.settings"))
+
+    oauth = getattr(current_app, "oauth", None)
+    if not oauth or not getattr(oauth, provider, None):
+        flash(f"Sign in with {provider.capitalize()} is not configured.", "warning")
+        return redirect(url_for("settings.settings"))
+
+    try:
+        token = getattr(oauth, provider).authorize_access_token()
+    except Exception as e:
+        flash(f"Re-authentication failed: {str(e)}. Please try again.", "warning")
+        return redirect(url_for("settings.settings"))
+
+    # Extract email from provider userinfo
+    userinfo = token.get("userinfo") or {}
+    email = (userinfo.get("email") or "").strip().lower()
+
+    if not email:
+        flash("Could not verify your email from the provider. Account not deleted.", "warning")
+        return redirect(url_for("settings.settings"))
+
+    if email != (current_user.email or "").strip().lower():
+        flash("Verified account does not match the logged-in user. Account not deleted.", "danger")
+        return redirect(url_for("settings.settings"))
+
+    # Proceed to delete (same as delete_account)
+    user_id = current_user.id
+
+    user_id_str = str(user_id)
+    db.activities.delete_many({'user_id': user_id_str})
+    db.wellness_snapshots.delete_many({'user_id': user_id_str})
+    db.goals.delete_many({'user_id': user_id_str})
+    db.user_sessions.delete_many({'user_id': user_id_str})
+    from bson import ObjectId
+    db.users.delete_one({'_id': ObjectId(user_id_str)})
+    logout_user()
+    session.clear()
+    flash("Your account has been deleted permanently.", "info")
+    resp = redirect(url_for("landing"))
+    # Ensure cookie is cleared
+    resp.delete_cookie('session')
+    return resp
 
 
 @settings_bp.route("/export-data", methods=["GET"])
@@ -156,7 +249,7 @@ def export_data():
     writer.writerow([])
 
     # Goals
-    goals = Goal.query.filter_by(user_id=current_user.id).first()
+    goals = Goal.get_by_user(current_user.id)
     writer.writerow(["Goals"])
     writer.writerow(["Screen limit (min)", goals.screen_limit if goals else ""])
     writer.writerow(["Study target (hours)", goals.study_target if goals else ""])
@@ -175,13 +268,14 @@ def export_data():
             "Learning (min)",
             "Entertainment (min)",
             "Productivity (min)",
-            "Gaming (min)",
             "Mood",
             "Stress level",
             "Energy level",
         ]
     )
-    activities = Activity.query.filter_by(user_id=current_user.id).order_by(Activity.activity_date).all()
+    activities = Activity.find_by_user(current_user.id)
+    # They were requested in reverse order originally in find_by_user, we can sort them
+    activities = sorted(activities, key=lambda a: a.activity_date or datetime.min)
     for a in activities:
         writer.writerow(
             [
@@ -193,7 +287,6 @@ def export_data():
                 a.learning_time,
                 a.entertainment_time,
                 a.productivity_time,
-                a.gaming_time,
                 a.mood or "",
                 a.stress_level or "",
                 a.energy_level or "",
@@ -215,9 +308,9 @@ def export_data():
 @login_required
 def logout_other_sessions():
     """Mark all other sessions as inactive for this user."""
-    UserSession.query.filter_by(user_id=current_user.id, is_active=True).update(
-        {"is_active": False}
+    db.user_sessions.update_many(
+        {'user_id': str(current_user.id), 'is_active': True},
+        {'$set': {'is_active': False}}
     )
-    db.session.commit()
     flash("All other sessions have been logged out.", "info")
     return redirect(url_for("settings.settings"))

@@ -1,5 +1,5 @@
 """
-Activity tracking: category breakdown (social, learning, entertainment, productivity, gaming),
+Activity tracking: category breakdown (social, learning, entertainment, productivity),
 mood, stress level, energy level. Saves to Activity and triggers wellness snapshot update.
 """
 from datetime import datetime
@@ -37,9 +37,8 @@ def track_activity():
         learning_time = _hours_to_minutes(request.form.get("learning_time"))
         entertainment_time = _hours_to_minutes(request.form.get("entertainment_time"))
         productivity_time = _hours_to_minutes(request.form.get("productivity_time"))
-        gaming_time = _hours_to_minutes(request.form.get("gaming_time"))
 
-        total_screen = social_time + learning_time + entertainment_time + productivity_time + gaming_time
+        total_screen = social_time + learning_time + entertainment_time + productivity_time
         if total_screen <= 0:
             flash("Please enter at least some screen time in one or more categories.", "danger")
             return redirect(url_for("activity.track_activity"))
@@ -72,23 +71,16 @@ def track_activity():
             learning_time=learning_time,
             entertainment_time=entertainment_time,
             productivity_time=productivity_time,
-            gaming_time=gaming_time,
             mood=mood,
             stress_level=stress_level,
             energy_level=energy_level,
         )
-        db.session.add(activity)
-        db.session.commit()
+        activity.save()
 
         update_daily_wellness_snapshot(current_user)
 
         flash("Activity recorded successfully.", "success")
         return redirect(url_for("dashboard.dashboard"))
 
-    activities = (
-        Activity.query.filter_by(user_id=current_user.id)
-        .order_by(Activity.activity_date.desc(), Activity.created_at.desc())
-        .limit(30)
-        .all()
-    )
+    activities = Activity.find_by_user(current_user.id, limit=30)
     return render_template("activity.html", activities=activities)

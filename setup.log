@@ -1,0 +1,6 @@
+[OAuth Setup] Google Client ID loaded: True
+[OAuth Setup] Client ID (first 20 chars): 1006939819073-gh8mun...
+[OAuth Setup] Google OAuth registered successfully
+Created admin@example.com with password 'admin123'
+Created user@example.com with password 'user123'
+Test users ready.

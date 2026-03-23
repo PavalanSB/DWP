@@ -23,22 +23,17 @@ dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/dashboard")
 @dashboard_bp.route("/")
 @login_required
 def dashboard():
-    activities = Activity.query.filter_by(user_id=current_user.id).order_by(
-        Activity.activity_date.desc()
-    ).all()
+    activities = Activity.find_by_user(current_user.id)
 
-    total_days = len({a.activity_date for a in activities})
+    from datetime import datetime
+    total_days = len({(a.activity_date.date() if isinstance(a.activity_date, datetime) else a.activity_date) for a in activities})
     avg_screen_time = 0
     if activities:
         avg_screen_time = int(
             sum(getattr(a, "screen_time_minutes", 0) or 0 for a in activities) / len(activities)
         )
 
-    latest_snapshot = (
-        WellnessSnapshot.query.filter_by(user_id=current_user.id)
-        .order_by(WellnessSnapshot.snapshot_date.desc())
-        .first()
-    )
+    latest_snapshot = WellnessSnapshot.get_latest_for_user(current_user.id)
     latest_classification = (
         latest_snapshot.classification if latest_snapshot else "Not yet classified"
     )
@@ -48,12 +43,13 @@ def dashboard():
     )
 
     today = date.today()
-    today_activity = Activity.query.filter_by(
-        user_id=current_user.id, activity_date=today
-    ).first()
+    from datetime import datetime
+    today_dt = datetime.combine(today, datetime.min.time())
+    today_data = db.activities.find_one({'user_id': str(current_user.id), 'activity_date': {"$gte": today_dt}})
+    today_activity = Activity(**today_data) if today_data else None
 
     # Goals (one per user)
-    goals = Goal.query.filter_by(user_id=current_user.id).first()
+    goals = Goal.get_by_user(current_user.id)
 
     # Streak & consistency & wellness score
     streak = calculate_streak(activities)

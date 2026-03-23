@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Goals | Digital Wellness Platform{% endblock %}
+{% block page_content %}
+<div class="dashboard-header mb-4">
+  <h1 class="dashboard-title">
+    <i class="fas fa-trophy text-primary me-2"></i>Set Your Goals
+  </h1>
+  <p class="text-muted">Define your daily wellness targets to stay on track.</p>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body">
+        <form method="POST">
+          <div class="mb-3">
+            <label for="screen_limit" class="form-label">Daily Screen Time Limit (minutes)</label>
+            <input type="number" class="form-control" id="screen_limit" name="screen_limit"
+                   value="{{ goal.screen_limit or '' }}" placeholder="e.g., 480 (8 hours)">
+            <div class="form-text">Set a maximum for daily screen time to promote balance.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="study_target" class="form-label">Daily Study/Work Target (hours)</label>
+            <input type="number" step="0.5" class="form-control" id="study_target" name="study_target"
+                   value="{{ goal.study_target or '' }}" placeholder="e.g., 4.0">
+            <div class="form-text">Aim for productive hours focused on learning or work.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="sleep_target" class="form-label">Sleep Target (hours)</label>
+            <input type="number" step="0.5" class="form-control" id="sleep_target" name="sleep_target"
+                   value="{{ goal.sleep_target or '' }}" placeholder="e.g., 8.0">
+            <div class="form-text">Target healthy sleep duration for better wellness.</div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Save Goals</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -2,6 +2,12 @@
 {% block title %}Insights & Strategies | Digital Wellness Platform{% endblock %}
 {% block page_content %}
 
+<div class="dashboard-header mb-4">
+  <h1 class="dashboard-title">
+    <i class="fas fa-lightbulb text-primary me-2"></i>Insights
+  </h1>
+</div>
+
 {% if snapshot %}
   {% set classification = snapshot.classification %}
   {% set is_healthy = classification == "Healthy" %}
@@ -99,18 +105,18 @@
           </div>
           <h5 class="card-title mb-3">Sleep Optimization</h5>
           <ul class="strategy-list list-unstyled mb-3">
-            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Maintain 7–9 hours sleep</li>
-            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Avoid screens 60 mins before bed</li>
-            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Enable night mode</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Get 7–9 hours of sleep</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>No screens 1 hour before bed</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Turn on night mode</li>
           </ul>
           <div class="strategy-checklist">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="checkSleep1">
-              <label class="form-check-label small" for="checkSleep1">Slept 7+ hours today</label>
+              <label class="form-check-label small" for="checkSleep1">Got 7+ hours of sleep today</label>
             </div>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="checkSleep2">
-              <label class="form-check-label small" for="checkSleep2">Avoided screens before bed</label>
+              <label class="form-check-label small" for="checkSleep2">No screens before bed</label>
             </div>
           </div>
         </div>
@@ -124,18 +130,18 @@
           </div>
           <h5 class="card-title mb-3">Productivity Boost</h5>
           <ul class="strategy-list list-unstyled mb-3">
-            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Use 25–50 minute focus blocks</li>
-            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Batch notifications</li>
-            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Reduce multitasking</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Work in 30-minute chunks</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Check messages all at once</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Do one thing at a time</li>
           </ul>
           <div class="strategy-checklist">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="checkProd1">
-              <label class="form-check-label small" for="checkProd1">Completed focus blocks today</label>
+              <label class="form-check-label small" for="checkProd1">Worked in focused chunks today</label>
             </div>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="checkProd2">
-              <label class="form-check-label small" for="checkProd2">Reduced screen time today</label>
+              <label class="form-check-label small" for="checkProd2">Cut down screen time today</label>
             </div>
           </div>
         </div>
@@ -149,18 +155,18 @@
           </div>
           <h5 class="card-title mb-3">Digital Detox</h5>
           <ul class="strategy-list list-unstyled mb-3">
-            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Schedule 1-hour offline window</li>
-            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Avoid social apps before sleep</li>
-            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Practice deep focus sessions</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Take a 1-hour screen break</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>No social media before bed</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Focus without distractions</li>
           </ul>
           <div class="strategy-checklist">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="checkDetox1">
-              <label class="form-check-label small" for="checkDetox1">Completed offline window</label>
+              <label class="form-check-label small" for="checkDetox1">Took a 1-hour screen break</label>
             </div>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="checkDetox2">
-              <label class="form-check-label small" for="checkDetox2">Used focus mode</label>
+              <label class="form-check-label small" for="checkDetox2">Focused without distractions</label>
             </div>
           </div>
         </div>
@@ -253,6 +259,22 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommendations Section -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title text-primary">Recommendations for Improvement</h5>
+          <ul class="list-group list-group-flush">
+            {% for recommendation in recommendations %}
+              <li class="list-group-item">{{ recommendation }}</li>
+            {% endfor %}
+          </ul>
         </div>
       </div>
     </div>
