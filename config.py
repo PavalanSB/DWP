@@ -11,6 +11,10 @@ class Config:
         "MONGO_URI", "mongodb://localhost:27017/dwp"
     )
 
+    # Session cookie settings for cross-origin requests
+    SESSION_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE = True
+    
     # Application-specific settings
     REMEMBER_COOKIE_DURATION_DAYS = 7
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads", "avatars")
