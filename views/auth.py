@@ -188,8 +188,11 @@ def google_login():
     from flask import session as flask_session
     flask_session['google_auth_action'] = action
     
-    # Use localhost explicitly to avoid 127.0.0.1 vs localhost mismatch
-    redirect_uri = request.host_url.replace('127.0.0.1', 'localhost').rstrip('/') + url_for("auth.google_callback")
+    # Use OAUTH_BASE_URL if set, else fallback to request.host_url
+    base_url = current_app.config.get("OAUTH_BASE_URL")
+    if not base_url or "localhost" in base_url or "127.0.0.1" in base_url:
+        base_url = request.host_url.replace('127.0.0.1', 'localhost').rstrip('/')
+    redirect_uri = base_url + url_for("auth.google_callback")
     return oauth.google.authorize_redirect(redirect_uri)
 
 
@@ -205,7 +208,7 @@ def google_callback():
         error_msg = str(e)
         if "redirect_uri_mismatch" in error_msg:
             flash(
-                "OAuth setup error: Redirect URI mismatch. Please ensure both 'http://localhost:5000/auth/google/callback' and 'http://127.0.0.1:5000/auth/google/callback' are registered in Google Cloud Console.",
+                f"OAuth setup error: Redirect URI mismatch. Please ensure both '{current_app.config.get('OAUTH_BASE_URL')}/auth/google/callback' and 'http://127.0.0.1:5000/auth/google/callback' are registered in Google Cloud Console.",
                 "danger",
             )
         else:

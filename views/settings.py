@@ -169,8 +169,11 @@ def reauth_delete(provider):
         return redirect(url_for("settings.settings"))
 
     try:
-        # Use localhost explicitly to avoid 127.0.0.1 vs localhost mismatch
-        redirect_uri = request.host_url.replace('127.0.0.1', 'localhost').rstrip('/') + url_for("settings.confirm_delete", provider=provider)
+        # Use OAUTH_BASE_URL if set, else fallback to request.host_url
+        base_url = current_app.config.get("OAUTH_BASE_URL")
+        if not base_url or "localhost" in base_url or "127.0.0.1" in base_url:
+            base_url = request.host_url.replace('127.0.0.1', 'localhost').rstrip('/')
+        redirect_uri = base_url + url_for("settings.confirm_delete", provider=provider)
         return getattr(oauth, provider).authorize_redirect(redirect_uri, prompt="login")
     except Exception as e:
         flash(f"Authentication setup failed: {str(e)}. Please try again or contact support.", "danger")
