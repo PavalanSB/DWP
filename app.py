@@ -207,6 +207,8 @@ def get_recommendations(wellness_score, classification):
     return recommendations
 
 
+# Module-level app instance for Gunicorn (e.g. "gunicorn app:app")
+app = create_app()
+
 if __name__ == "__main__":
-    app = create_app()
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
